@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编码转换器</title>
+<style>
+*{box-sizing:border-box;font-family:system-ui, sans-serif;}
+body{margin:20px;background:#1e1e2e;color:#fff;}
+.container{max-width:900px;margin:0 auto;}
+.panel{background:#2b2b3b;padding:16px;border-radius:10px;margin-bottom:12px;}
+label{display:block;margin-bottom:6px;font-weight:500;}
+textarea{width:100%;height:120px;padding:10px;border-radius:8px;border:none;background:#3c3c4e;color:#fff;font-size:14px;resize:vertical;}
+select,button{padding:8px 12px;border-radius:8px;border:none;background:#4f4f6f;color:#fff;font-size:14px;}
+button{background:#7c3aed;cursor:pointer;}
+button:hover{background:#6d28d9;}
+.flex{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+</style>
+</head>
+<body>
+<div class="container">
+  <h2><i>编码转换器byAI</i></h2>
+
+  <div class="panel">
+    <label>输入内容</label>
+    <textarea id="input" placeholder="在这里输入要转换的内容…"></textarea>
+  </div>
+
+  <div class="flex">
+    <div>
+      <label>输入编码</label>
+      <select id="from">
+        <option value="utf8">UTF-8 原文</option>
+        <option value="decimal">10进制</option>
+        <option value="morse">摩斯电码</option>
+        <option value="binary">二进制</option>
+        <option value="base64">Base64</option>
+        <option value="unicode">Unicode（\uXXXX）</option>
+        <option value="hex">16进制 Hex</option>
+        <option value="url">URL 编码</option>
+      </select>
+    </div>
+    <div>
+      <label>输出编码</label>
+      <select id="to">
+        <option value="utf8">UTF-8 原文</option>
+        <option value="decimal">10进制</option>
+        <option value="morse">摩斯电码</option>
+        <option value="binary">二进制</option>
+        <option value="base64">Base64</option>
+        <option value="unicode">Unicode（\uXXXX）</option>
+        <option value="hex">16进制 Hex</option>
+        <option value="url">URL 编码</option>
+      </select>
+    </div>
+    <button onclick="convert()">开始转换</button>
+  </div>
+
+  <div class="panel">
+    <label>转换结果</label>
+    <textarea id="output" readonly placeholder="结果将显示在这里…"></textarea>
+  </div>
+</div>
+
+<script>
+// 工具函数
+function utf8ToBytes(s) { return new TextEncoder().encode(s); }
+function bytesToUtf8(b) { return new TextDecoder().decode(b); }
+
+// 10进制（字符编码空格分隔）
+function strToDecimal(str) {
+  return Array.from(str).map(c => c.charCodeAt(0)).join(' ');
+}
+function decimalToStr(dec) {
+  try {
+    return dec.trim().split(/\s+/).map(n => String.fromCharCode(Number(n))).join('');
+  } catch(e) { return '10进制格式错误'; }
+}
+
+// 摩斯电码
+const morseMap = {
+  'A':'.-','B':'-...','C':'-.-.','D':'-..','E':'.','F':'..-.','G':'--.','H':'....','I':'..','J':'.---',
+  'K':'-.-','L':'.-..','M':'--','N':'-.','O':'---','P':'.--.','Q':'--.-','R':'.-.','S':'...','T':'-',
+  'U':'..-','V':'...-','W':'.--','X':'-..-','Y':'-.--','Z':'--..',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+  '6':'-....','7':'--...','8':'---..','9':'----.',
+  '.':'.-.-.-',',':'--..--','?':'..--..','\'':'.----.','!':'-.-.--','/':'-..-.','(':'-.--.',')':'-.--.-',
+  '&':'.-...',':':'---...',';':'-.-.-.','=':'-...-','+':'.-.-.','-':'-....-','_':'..--.-','"':'.-..-.',
+  '$':'...-..-','@':'.--.-.',' ':'/'
+};
+const reverseMorse = Object.fromEntries(Object.entries(morseMap).map(([k,v])=>[v,k]));
+
+function strToMorse(str) {
+  return str.toUpperCase().split('').map(c => morseMap[c] || c).join(' ');
+}
+function morseToStr(morse) {
+  try {
+    return morse.trim().split(/\s+/).map(c => reverseMorse[c] || c).join('');
+  } catch(e) { return '摩斯格式错误'; }
+}
+
+// 二进制
+function strToBinary(str) {
+  const bytes = utf8ToBytes(str);
+  return Array.from(bytes).map(b => b.toString(2).padStart(8, '0')).join(' ');
+}
+function binaryToStr(bin) {
+  try {
+    const bins = bin.trim().split(/\s+/);
+    const bytes = new Uint8Array(bins.map(b => parseInt(b, 2)));
+    return bytesToUtf8(bytes);
+  } catch(e) { return '二进制格式错误'; }
+}
+
+// Base64
+function strToBase64(s) { return btoa(unescape(encodeURIComponent(s))); }
+function base64ToStr(b64) {
+  try { return decodeURIComponent(escape(atob(b64))); } catch { return 'Base64 错误'; }
+}
+
+// Unicode \uXXXX
+function strToUnicode(s) {
+  return Array.from(s).map(c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0')).join('');
+}
+function unicodeToStr(u) {
+  return u.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h,16)));
+}
+
+// Hex
+function strToHex(s) {
+  return Array.from(utf8ToBytes(s)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+}
+function hexToStr(h) {
+  try {
+    const hex = h.replace(/\s+/g, '');
+    const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(x => parseInt(x,16)));
+    return bytesToUtf8(bytes);
+  } catch { return 'Hex 错误'; }
+}
+
+function convert() {
+  const i = document.getElementById('input').value;
+  const f = document.getElementById('from').value;
+  const t = document.getElementById('to').value;
+
+  let utf8 = '';
+
+  if (f === 'utf8') utf8 = i;
+  else if (f === 'decimal') utf8 = decimalToStr(i);
+  else if (f === 'morse') utf8 = morseToStr(i);
+  else if (f === 'binary') utf8 = binaryToStr(i);
+  else if (f === 'base64') utf8 = base64ToStr(i);
+  else if (f === 'unicode') utf8 = unicodeToStr(i);
+  else if (f === 'hex') utf8 = hexToStr(i);
+  else if (f === 'url') utf8 = decodeURIComponent(i);
+
+  let out = '';
+  if (t === 'utf8') out = utf8;
+  else if (t === 'decimal') out = strToDecimal(utf8);
+  else if (t === 'morse') out = strToMorse(utf8);
+  else if (t === 'binary') out = strToBinary(utf8);
+  else if (t === 'base64') out = strToBase64(utf8);
+  else if (t === 'unicode') out = strToUnicode(utf8);
+  else if (t === 'hex') out = strToHex(utf8);
+  else if (t === 'url') out = encodeURIComponent(utf8);
+
+  document.getElementById('output').value = out;
+}
+</script>
+</body>
+</html>
